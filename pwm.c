@@ -1,4 +1,4 @@
-// PWM setup routines
+// PWM routines
 
 void pwmInit() {
     PR2 = 0xff;
@@ -20,4 +20,15 @@ void pwmInit() {
     STRSYNC = 1;
 
     while(!TMR2IF){};
+}
+
+void setPower(int8_t p) {
+    if (sign(p) == 1) {
+        STRA = 1;
+        STRB = 0;
+    } else {
+        STRA = 0;
+        STRB = 1;
+    }
+    CCPR1L = 2 * abs(bound(-127, 127, p));
 }

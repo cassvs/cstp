@@ -23,52 +23,77 @@
 #include "init.c"
 #include "uart.c"
 #include "pwm.c"
+#include "encoder.c"
+#include "fmt.c"
 
 // Config:
 static __code uint16_t __at (_CONFIG) configWord = _INTOSCIO & _WDT_OFF & _PWRTE_OFF & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOR_OFF & _IESO_ON & _FCMEN_OFF;
 
-int8_t power = 0;
-int8_t step = 1;
+const intmax_t Target = 0x2ff;
 
-void setPower(int8_t p) {
-    if (sign(p) == 1) {
-        STRA = 1;
-        STRB = 0;
-    } else {
-        STRA = 0;
-        STRB = 1;
-    }
-    CCPR1L = 2 * abs(bound(-127, 127, p));
-}
+uintmax_t ticks = 0;
+
+struct flags_s {
+    unsigned TICK   : 1;
+    unsigned        : 7;
+};
+
+volatile struct flags_s flags = {0, 0};
+
+// int8_t power = 0;
+// int8_t step = 1;
 
 void tick() {
-    if ((step > 0 && (int8_t)(power + step) < power) || (step < 0 && (int8_t)(power + step) > power)) {
-        step *= -1;
-        putchar((step < 0) ? 'F' : 'R');
+    // if ((step > 0 && (int8_t)(power + step) < power) || (step < 0 && (int8_t)(power + step) > power)) {
+    //     step *= -1;
+    // }
+    // power += step;
+
+    velocity = pos - prevPos;
+    prevPos = pos;
+
+    if (pos < Target) {
+        setPower(127);
+    } else {
+        setPower(0);
     }
-    power += step;
-    if (power == 0)
-        putchar('0');
-    setPower(power);
+
+    ticks++;
 }
 
 void main(void) {
     oscInit(F_8M);
     pinsInit();
     uartInit();
+    //TXIE = 1;
     pwmInit();
     TRISC5 = 0;
     TRISC4 = 0;
+    encoderInit();
     tickInit();
     PEIE = 1;
     GIE = 1;
 
-    while(1){};
+    puts("Init done\r\n");
+
+    while (1) {
+        if (flags.TICK) {
+            flags.TICK = 0;
+            tick();
+        }
+    }
 }
 
 void interrupt(void) __interrupt 0 {
+    if (RABIF) {
+        encoderISR();
+    }
+    if (TXIF) {
+        txISR();
+    }
     if (T0IF) {
         T0IF = 0;
-        tick();
+        flags.TICK = 1;
+        //tick();
     }
 }

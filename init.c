@@ -46,6 +46,10 @@ void pinsInit() {
     TRISB = 0xff;
     TRISC = 0xff;
 
+    // No pullups
+    WPUA = 0;
+    WPUB = 0;
+
     // All IO latches clear
     PORTA = 0;
     PORTB = 0;

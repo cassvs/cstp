@@ -25,3 +25,21 @@ int8_t bound(int8_t l, int8_t u, int8_t x) {
         return x;
     }
 }
+
+int8_t bound16(int8_t l, int8_t u, int16_t x) {
+    if (x < l) {
+        return l;
+    } else if (x > u) {
+        return u;
+    } else {
+        return x;
+    }
+}
+
+int8_t average(int8_t* list, uint8_t len) {
+    int16_t sum = 0;
+    for (uint8_t i = 0; i < len; i++) {
+        sum += list[i];
+    }
+    return sum / len;
+}

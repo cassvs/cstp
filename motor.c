@@ -29,7 +29,13 @@
 // Config:
 static __code uint16_t __at (_CONFIG) configWord = _INTOSCIO & _WDT_OFF & _PWRTE_OFF & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOR_OFF & _IESO_ON & _FCMEN_OFF;
 
-const intmax_t Target = 0x2ff;
+//const intmax_t Target = 0x2ff;
+const int8_t TargetVelocity = 4;
+
+#define AvgLen 8
+int8_t avgbuf[AvgLen];
+int8_t averageVelocity;
+uint8_t avgIndex = 0;
 
 uintmax_t ticks = 0;
 
@@ -40,7 +46,7 @@ struct flags_s {
 
 volatile struct flags_s flags = {0, 0};
 
-// int8_t power = 0;
+int8_t power = 0;
 // int8_t step = 1;
 
 void tick() {
@@ -52,11 +58,22 @@ void tick() {
     velocity = pos - prevPos;
     prevPos = pos;
 
-    if (pos < Target) {
-        setPower(127);
-    } else {
-        setPower(0);
+    avgbuf[avgIndex] = velocity;
+    avgIndex = (avgIndex + 1) % AvgLen;
+
+    averageVelocity = average(avgbuf, AvgLen);
+
+    if (averageVelocity < TargetVelocity) {
+        power = bound16(-127, 127, (int16_t)power + 1);
+    } else if (averageVelocity > TargetVelocity) {
+        power = bound16(-127, 127, (int16_t)power - 1);
     }
+
+    setPower(power);
+
+    putchar_buf(toHex((velocity & 0b11110000) >> 4));
+    putchar_buf(toHex(velocity & 0b00001111));
+    puts("\r\n");
 
     ticks++;
 }

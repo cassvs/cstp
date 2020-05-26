@@ -7,4 +7,4 @@ The software provides the folowing features:
 - PWM output, for controlling a motor
 - Quadrature encoder input, for position and velocity feedback
 - System tick function
-- UART output for debugging (input coming soon!)
+- UART IO, featuring a simple protocol for reading and writing 20 one-byte registers and issuing commands to up to 26 devices on the same bus

@@ -1,6 +1,7 @@
 // UART setup and utility routines
 
 #define TXLEN 16
+#define REGLEN 20
 
 uint8_t txbuf[TXLEN];
 uint8_t txread = 0;
@@ -9,7 +10,7 @@ uint8_t txlock = 0;
 
 const char Address = 'M';
 
-int8_t registers[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int8_t registers[REGLEN] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 typedef enum RxState {
     LISTEN,
@@ -89,6 +90,32 @@ void devCommand(char c) {
         case '#':
             hexOut(val);
             puts("\r\n");
+            break;
+        case '.':
+            runState = IDLE;
+            break;
+        case '<':
+            runState = RESET;
+            break;
+        case '>':
+            runState = RUNNING;
+            break;
+        case '~':
+            pos = prevPos = 0;
+            break;
+        // case ',':
+        // // TODO: Make this work. Writes to Tx ring buffer waaay too fast
+        //     for (uint8_t i = 0; i < REGLEN; i++) {
+        //         putchar_buf(i + 'g');
+        //         puts(": ");
+        //         hexOut(registers[i]);
+        //         puts("\r\n");
+        //     }
+        //     break;
+        case ';':
+            hexOut(runState);
+            puts("\r\n");
+            break;
     }
 }
 
@@ -139,8 +166,12 @@ inline void rxISR() {
         CREN = 1;
     }
     ByteType t = getType(c);
-    if (c == Address) {
-        RecState = GETREG;
+    if (t == ADDRESS) {
+        if (c == Address) {
+            RecState = GETREG;
+        } else {
+            RecState = LISTEN;
+        }
     } else {
         switch(RecState) {
             case LISTEN:

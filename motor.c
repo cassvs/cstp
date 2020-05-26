@@ -19,17 +19,28 @@
 
 #include <stdint.h>
 #include <pic14regs.h>
+
+typedef enum RunState {
+    IDLE,
+    RUNNING,
+    RESET
+} RunState;
+
+volatile RunState runState = IDLE;
+
 #include "math.c"
 #include "init.c"
 #include "fmt.c"
+#include "encoder.c"
 #include "uart.c"
 #include "pwm.c"
-#include "encoder.c"
+
+#define Reg(x) registers[regConvert(x)]
+#define Reg_t(x, t) *(t *)(registers + regConvert(x))
 
 // Config:
 static __code uint16_t __at (_CONFIG) configWord = _INTOSCIO & _WDT_OFF & _PWRTE_OFF & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOR_OFF & _IESO_ON & _FCMEN_OFF;
 
-const intmax_t Target = 0x2ff;
 // const int8_t TargetVelocity = 4;
 //
 // #define AvgLen 8
@@ -70,10 +81,10 @@ void tick() {
     // }
 
     // Stupid drive-to-position
-    if (pos < Target - registers[regConvert('q')]) {
-        power = registers[regConvert('p')];
-    } else if (pos > Target + registers[regConvert('q')]) {
-        power = -registers[regConvert('p')];
+    if (pos < Reg_t('w', intmax_t) - Reg('q')) {
+        power = Reg('p');
+    } else if (pos > Reg_t('w', intmax_t) + Reg('q')) {
+        power = -Reg('p');
     } else {
         power = 0;
     }
@@ -106,7 +117,21 @@ void main(void) {
     while (1) {
         if (flags.TICK) {
             flags.TICK = 0;
-            tick();
+            switch (runState) {
+                case RUNNING:
+                    tick();
+                    break;
+                case RESET:
+                    if ((pos <= 0 && prevPos >= 0) || (pos >= 0 && prevPos <= 0)) {
+                        runState = IDLE;
+                    } else {
+                        setPower((pos > 0) ? -Reg('p') : Reg('p'));
+                    }
+                    break;
+                case IDLE:
+                    setPower(0);
+                    break;
+            }
         }
     }
 }

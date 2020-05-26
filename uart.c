@@ -1,7 +1,7 @@
 // UART setup and utility routines
 
-#define TXLEN 16
-#define REGLEN 20
+#define TXLEN 16    // Tx ring buffer size
+#define REGLEN 20   // Number of UART-accessible registers
 
 uint8_t txbuf[TXLEN];
 uint8_t txread = 0;
@@ -18,6 +18,7 @@ typedef enum RxState {
     GETVAL
 } RxState;
 
+// Rx state variable, register pointer, and incoming value variable
 volatile RxState RecState = LISTEN;
 volatile uint8_t reg = 0;
 volatile int8_t val = 0;
@@ -47,6 +48,7 @@ ByteType getType(char c) {
     }
 }
 
+// Write byte to Tx ring buffer
 void putchar_buf(uint8_t c) {
     while (txlock)
         continue;
@@ -57,53 +59,57 @@ void putchar_buf(uint8_t c) {
     txlock = 0;
 }
 
+// Write bytes to Tx ring buffer
 void puts(uint8_t *str) {
     for (uint8_t i = 0; str[i] != 0; i++) {
         putchar_buf(str[i]);
     }
 }
 
+// Convert byte to hex numeral pair
 void hexOut(uint8_t x) {
     putchar_buf(toHex((x & 0b11110000) >> 4));
     putchar_buf(toHex(x & 0b00001111));
 }
 
+// UART commands operating on registers
 void regCommand(char c) {
     switch(c) {
-        case '?':
+        case '?':   // Output register value as hex numerals
             hexOut(registers[reg]);
             puts("\r\n");
             break;
     }
 }
 
+// UART commands for device control
 void devCommand(char c) {
     switch (c) {
-        case '?':
+        case '?':   // Output device address (useful for device discovery)
             putchar_buf(Address);
             puts("\r\n");
             break;
-        case '@':
+        case '@':   // Output current state of register pointer (which is reset after a complete register operation)
             putchar_buf(reg + 'g');
             puts("\r\n");
             break;
-        case '#':
+        case '#':   // Output current state of val variable (also reset after complete register write)
             hexOut(val);
             puts("\r\n");
             break;
-        case '.':
+        case '.':   // Stop
             runState = IDLE;
             break;
-        case '<':
+        case '<':   // Reset-to-zero
             runState = RESET;
             break;
-        case '>':
+        case '>':   // Go
             runState = RUNNING;
             break;
-        case '~':
+        case '~':   // Zero encoder
             pos = prevPos = 0;
             break;
-        // case ',':
+        // case ',':    // Dump all registers
         // // TODO: Make this work. Writes to Tx ring buffer waaay too fast
         //     for (uint8_t i = 0; i < REGLEN; i++) {
         //         putchar_buf(i + 'g');
@@ -112,7 +118,7 @@ void devCommand(char c) {
         //         puts("\r\n");
         //     }
         //     break;
-        case ';':
+        case ';':   // Output current run-state
             hexOut(runState);
             puts("\r\n");
             break;

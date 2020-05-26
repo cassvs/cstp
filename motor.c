@@ -17,6 +17,43 @@
                          UART Tx [|10___11|]
 */
 
+/* Register map:
+g:
+h:
+i:
+j:
+k:
+l:
+m:
+n:
+o:
+p: motor power (signed)
+q: deadband (signed (for some reason))
+r:
+s:
+t:
+u:
+v:
+w: target byte 0 (LSB)
+x: target byte 1
+y: target byte 2
+z: target byte 3
+*/
+
+/* UART command syntax:
+    Capital letter: Address
+    lowercase letter: Register (g-z), hex numeral (a-f)
+    Printable symbol: Command
+    Newline (\r, \n): End of numeric input delimiter
+    Other non-printables: Ignored
+
+    Set device M's register 'g' to 255:  "Mgff\n"
+    Test for the presence of a device A on the bus: "A?" (Should receive "A\r\n" if A exists)
+    Get value stored in device B's register 'z': "Bz?" (Should receive "__\r\n", where _'s are hex numerals)
+    Run: "A>"   Stop: "A."  Reset (drive until encoder is at zero): "A<"
+    See uart.c for other commands.
+*/
+
 #include <stdint.h>
 #include <pic14regs.h>
 
@@ -41,13 +78,6 @@ volatile RunState runState = IDLE;
 // Config:
 static __code uint16_t __at (_CONFIG) configWord = _INTOSCIO & _WDT_OFF & _PWRTE_OFF & _MCLRE_OFF & _CP_OFF & _CPD_OFF & _BOR_OFF & _IESO_ON & _FCMEN_OFF;
 
-// const int8_t TargetVelocity = 4;
-//
-// #define AvgLen 8
-// int8_t avgbuf[AvgLen];
-// int8_t averageVelocity;
-// uint8_t avgIndex = 0;
-
 uintmax_t ticks = 0;
 
 struct flags_s {
@@ -58,27 +88,11 @@ struct flags_s {
 volatile struct flags_s flags = {0, 0};
 
 int8_t power = 0;
-// int8_t step = 1;
 
 void tick() {
-    // if ((step > 0 && (int8_t)(power + step) < power) || (step < 0 && (int8_t)(power + step) > power)) {
-    //     step *= -1;
-    // }
-    // power += step;
 
     velocity = pos - prevPos;
     prevPos = pos;
-
-    // avgbuf[avgIndex] = velocity;
-    // avgIndex = (avgIndex + 1) % AvgLen;
-    //
-    // averageVelocity = average(avgbuf, AvgLen);
-    //
-    // if (averageVelocity < TargetVelocity) {
-    //     power = bound16(-127, 127, (int16_t)power + 1);
-    // } else if (averageVelocity > TargetVelocity) {
-    //     power = bound16(-127, 127, (int16_t)power - 1);
-    // }
 
     // Stupid drive-to-position
     if (pos < Reg_t('w', intmax_t) - Reg('q')) {
@@ -90,10 +104,6 @@ void tick() {
     }
 
     setPower(power);
-    //
-    // putchar_buf(toHex((velocity & 0b11110000) >> 4));
-    // putchar_buf(toHex(velocity & 0b00001111));
-    // puts("\r\n");
 
     ticks++;
 }
@@ -102,7 +112,6 @@ void main(void) {
     oscInit(F_8M);
     pinsInit();
     uartInit();
-    //TXIE = 1;
     RCIE = 1;
     pwmInit();
     TRISC5 = 0;
@@ -149,6 +158,5 @@ void interrupt(void) __interrupt 0 {
     if (T0IF) {
         T0IF = 0;
         flags.TICK = 1;
-        //tick();
     }
 }
